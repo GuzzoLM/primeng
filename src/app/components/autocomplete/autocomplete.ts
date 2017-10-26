@@ -85,7 +85,7 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
     @Input() autoHighlight: boolean;
     
     @Input() forceSelection: boolean;
-    
+        
     @Input() type: string = 'text';
 
     @Output() completeMethod: EventEmitter<any> = new EventEmitter();
@@ -109,6 +109,8 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
     @Input() scrollHeight: string = '200px';
     
     @Input() dropdown: boolean;
+    
+    @Input() dropdownMode: string = 'blank';
     
     @Input() multiple: boolean;
 
@@ -159,7 +161,7 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
     filled: boolean;
     
     inputClick: boolean;
-
+    
     inputKeyDown: boolean;
     
     noResults: boolean;
@@ -289,6 +291,10 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
         if(!this.inputKeyDown) {
             return;
         }
+      
+        if(this.timeout) {
+            clearTimeout(this.timeout);
+        }
 
         let value = (<HTMLInputElement> event.target).value;
         if(!this.multiple) {
@@ -297,15 +303,10 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
         
         if(value.length === 0) {
            this.hide();
-		   this.onClear.emit(event);
+           this.onClear.emit(event);
         }
         
         if(value.length >= this.minLength) {
-            //Cancel the search request if user types within the timeout
-            if(this.timeout) {
-                clearTimeout(this.timeout);
-            }
-
             this.timeout = setTimeout(() => {
                 this.search(event, value);
             }, this.delay);
@@ -363,6 +364,9 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
             let hasFocus = this.multiple ? document.activeElement == this.multiInputEL.nativeElement : document.activeElement == this.inputEL.nativeElement ;
             if(!this.panelVisible && hasFocus) {
                 this.panelVisible = true;
+                if(this.appendTo) {
+                    this.panelEL.nativeElement.style.minWidth = this.domHandler.getWidth(this.el.nativeElement.children[0]) + 'px';
+                }
                 this.panelEL.nativeElement.style.zIndex = ++DomHandler.zindex;
                 this.domHandler.fadeIn(this.panelEL.nativeElement, 200);
                 this.bindDocumentClickListener();
@@ -385,6 +389,12 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
     handleDropdownClick(event) {
         this.focusInput();
         let queryValue = this.multiple ? this.multiInputEL.nativeElement.value : this.inputEL.nativeElement.value;
+        
+        if(this.dropdownMode === 'blank')
+            this.search(event, '');
+        else if(this.dropdownMode === 'current')
+            this.search(event, queryValue);
+        
         this.onDropdownClick.emit({
             originalEvent: event,
             query: queryValue
@@ -499,15 +509,16 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
         this.onModelTouched();
         this.onBlur.emit(event);
         
-        if(this.forceSelection) {
+        if(this.forceSelection && this.suggestions) {
             let valid = false;
-            let inputValue = event.target.value.toLowerCase().trim();
+            let inputValue = event.target.value.trim();
             
             if(this.suggestions)  {
                 for(let suggestion of this.suggestions) {
                     let itemValue = this.field ? this.objectUtils.resolveFieldData(suggestion, this.field) : suggestion;
-                    if(itemValue && inputValue === itemValue.toLowerCase()) {
+                    if(itemValue && inputValue === itemValue) {
                         valid = true;
+                        this.selectItem(suggestion);
                         break;
                     }
                 }
@@ -558,7 +569,7 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
         if(this.multiple)
             this.filled = (this.value && this.value.length) || (this.multiInputEL && this.multiInputEL.nativeElement && this.multiInputEL.nativeElement.value != '');
         else
-            this.filled = this.inputFieldValue && this.inputFieldValue != '';
+            this.filled = (this.inputFieldValue && this.inputFieldValue != '') || (this.inputEL && this.inputEL.nativeElement && this.inputEL.nativeElement.value != '');;
     }
     
     updateInputField() {
@@ -579,14 +590,19 @@ export class AutoComplete implements AfterViewInit,AfterViewChecked,DoCheck,Cont
                     return;
                 }
                 
-                if(this.inputClick)
-                    this.inputClick = false;
-                else
+                if(!this.inputClick && !this.isDropdownClick(event)) {
                     this.hide();
+                }
                     
+                this.inputClick = false;
                 this.cd.markForCheck();
             });
         }
+    }
+    
+    isDropdownClick(event) {
+        let target = event.target;
+        return this.domHandler.hasClass(target, 'ui-autocomplete-dropdown') || this.domHandler.hasClass(target.parentNode, 'ui-autocomplete-dropdown');
     }
     
     unbindDocumentClickListener() {

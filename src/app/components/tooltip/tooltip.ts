@@ -27,7 +27,9 @@ export class Tooltip implements OnDestroy {
     @Input() showDelay: number;
     
     @Input() hideDelay: number;
-        
+    
+    @Input() life: number;
+    
     container: any;
     
     styleClass: string;
@@ -38,6 +40,8 @@ export class Tooltip implements OnDestroy {
     
     hideTimeout: any;
     
+    lifeTimeout: any;
+    
     documentResizeListener: Function;
     
     active: boolean;
@@ -45,7 +49,7 @@ export class Tooltip implements OnDestroy {
     public _text: string;
     
     constructor(public el: ElementRef, public domHandler: DomHandler, public renderer: Renderer2) {}
-            
+    
     @HostListener('mouseenter', ['$event']) 
     onMouseEnter(e: Event) {
         if(this.tooltipEvent === 'hover') {
@@ -58,25 +62,33 @@ export class Tooltip implements OnDestroy {
         }
     }
     
-    @HostListener('mouseleave', ['$event']) 
+    @HostListener('mouseleave', ['$event'])
     onMouseLeave(e: Event) {
         if(this.tooltipEvent === 'hover') {
-            this.deactivate();
+            this.deactivate(true);
         }
     }
     
-    @HostListener('focus', ['$event']) 
+    @HostListener('focus', ['$event'])
     onFocus(e: Event) {
         if(this.tooltipEvent === 'focus') {
             this.activate();
         }
     }
     
-    @HostListener('blur', ['$event']) 
+    @HostListener('blur', ['$event'])
     onBlur(e: Event) {
         if(this.tooltipEvent === 'focus') {
-            this.deactivate();
+            this.deactivate(true);
         }
+    }
+  
+  
+    @HostListener('click', ['$event'])
+    onClick(e: Event) {
+      if(this.tooltipEvent === 'hover') {
+        this.deactivate(true);
+      }
     }
     
     activate() {
@@ -89,15 +101,23 @@ export class Tooltip implements OnDestroy {
             this.showTimeout = setTimeout(() => { this.show() }, this.showDelay);
         else
             this.show();
+            
+        if(this.life) {
+            this.lifeTimeout = setTimeout(() => { this.deactivate(false) }, this.life);
+        }
     }
     
-    deactivate() {
+    deactivate(useDelay) {
         this.active = false;
         if(this.showTimeout) {
             clearTimeout(this.showTimeout);
         }
         
-        if(this.hideDelay)
+        if(this.lifeTimeout) {
+            clearTimeout(this.lifeTimeout);
+        }
+        
+        if(this.hideDelay && useDelay)
             this.hideTimeout = setTimeout(() => { this.hide() }, this.hideDelay);
         else
             this.hide();
@@ -113,7 +133,7 @@ export class Tooltip implements OnDestroy {
             if(this._text) {
                 if(this.container && this.container.offsetParent)
                     this.updateText();
-                else 
+                else
                     this.show();
             }
             else {
@@ -124,7 +144,7 @@ export class Tooltip implements OnDestroy {
     
     create() {
         this.container = document.createElement('div');
-                
+        
         let tooltipArrow = document.createElement('div');
         tooltipArrow.className = 'ui-tooltip-arrow';
         this.container.appendChild(tooltipArrow);
@@ -158,7 +178,7 @@ export class Tooltip implements OnDestroy {
         this.create();
         this.align();
         if(this.tooltipStyleClass) {
-            this.container.className = this.container.className + ' ' + this.tooltipStyleClass; 
+            this.container.className = this.container.className + ' ' + this.tooltipStyleClass;
         }
         this.domHandler.fadeIn(this.container, 250);
         if(this.tooltipZIndex === 'auto')
@@ -249,7 +269,7 @@ export class Tooltip implements OnDestroy {
         let top = hostOffset.top + (this.domHandler.getOuterHeight(this.el.nativeElement) - this.domHandler.getOuterHeight(this.container)) / 2;
         this.container.style.left = left + 'px';
         this.container.style.top = top + 'px';
-    } 
+    }
     
     alignLeft() {
         this.preAlign();
@@ -259,7 +279,7 @@ export class Tooltip implements OnDestroy {
         let top = hostOffset.top + (this.domHandler.getOuterHeight(this.el.nativeElement) - this.domHandler.getOuterHeight(this.container)) / 2;
         this.container.style.left = left + 'px';
         this.container.style.top = top + 'px';
-    } 
+    }
     
     alignTop() {
         this.preAlign();
@@ -269,7 +289,7 @@ export class Tooltip implements OnDestroy {
         let top = hostOffset.top - this.domHandler.getOuterHeight(this.container);
         this.container.style.left = left + 'px';
         this.container.style.top = top + 'px';
-    } 
+    }
     
     alignBottom() {
         this.preAlign();
@@ -296,7 +316,7 @@ export class Tooltip implements OnDestroy {
 
         return (targetLeft + width > viewport.width) || (targetLeft < 0) || (targetTop < 0) || (targetTop + height > viewport.height);
     }
-        
+    
     bindDocumentResizeListener() {
         this.documentResizeListener = this.renderer.listen('window', 'resize', (event) => {
             this.hide();
@@ -323,7 +343,7 @@ export class Tooltip implements OnDestroy {
         }
         this.container = null;
     }
-     
+    
     ngOnDestroy() {
         this.destroy();
     }

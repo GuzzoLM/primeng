@@ -23,7 +23,7 @@ export const CHIPS_VALUE_ACCESSOR: any = {
                 </li>
                 <li class="ui-chips-input-token">
                     <input #inputtext type="text" [attr.id]="inputId" [attr.placeholder]="placeholder" [attr.tabindex]="tabindex" (keydown)="onKeydown($event,inputtext)" 
-                        (focus)="onFocus()" (blur)="onBlur()" [disabled]="maxedOut||disabled" [disabled]="disabled" [ngStyle]="inputStyle" [class]="inputStyleClass">
+                        (focus)="onInputFocus()" (blur)="onInputBlur($event,inputtext)" [disabled]="maxedOut||disabled" [disabled]="disabled" [ngStyle]="inputStyle" [class]="inputStyleClass">
                 </li>
             </ul>
         </div>
@@ -59,6 +59,12 @@ export class Chips implements AfterContentInit,ControlValueAccessor {
     @Input() inputStyleClass: any;
     
     @Input() addOnTab: boolean;
+
+    @Input() addOnBlur: boolean;
+
+    @Output() onFocus: EventEmitter<any> = new EventEmitter();
+    
+    @Output() onBlur: EventEmitter<any> = new EventEmitter();
     
     @ContentChildren(PrimeTemplate) templates: QueryList<any>;
     
@@ -125,13 +131,19 @@ export class Chips implements AfterContentInit,ControlValueAccessor {
         }
     }
     
-    onFocus() {
+    onInputFocus() {
         this.focus = true;
+        this.onFocus.emit();
     }
-    
-    onBlur() {
+
+    onInputBlur(event: FocusEvent, inputEL: HTMLInputElement) {
         this.focus = false;
+        if(this.addOnBlur && inputEL.value) {
+            this.addItem(event, inputEL.value);
+            inputEL.value = '';
+        }
         this.onModelTouched();
+        this.onBlur.emit();
     }
     
     removeItem(event: Event, index: number): void {
@@ -151,7 +163,7 @@ export class Chips implements AfterContentInit,ControlValueAccessor {
     addItem(event: Event, item: string): void {
         this.value = this.value||[];
         if(item && item.trim().length && (!this.max||this.max > item.length)) {
-            if(this.allowDuplicate || !this.value.includes(item)) {
+            if(this.allowDuplicate || this.value.indexOf(item) === -1) {
                 this.value = [...this.value, item];
                 this.onModelChange(this.value);
                 this.onAdd.emit({
